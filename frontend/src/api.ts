@@ -2,18 +2,9 @@ import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:8000';
 
-export interface MindMapBranch {
-  name: string;
-  keywords: string[];
-  sub_branches?: {
-    name: string;
-    keywords: string[];
-  }[];
-}
-
 export interface MindMapData {
-  central_topic: string;
-  branches: MindMapBranch[];
+  type: "mermaid";
+  mermaid_code: string;
 }
 
 export interface TranscriptionResult {
