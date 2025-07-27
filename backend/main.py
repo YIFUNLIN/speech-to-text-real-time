@@ -2,6 +2,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import openai
+import google.generativeai as genai
 import os
 from dotenv import load_dotenv
 import tempfile
@@ -10,6 +11,7 @@ from typing import Dict, Any, List
 import logging
 import re
 import json
+from pydantic import BaseModel
 
 # 載入環境變數
 load_dotenv()
@@ -17,6 +19,14 @@ load_dotenv()
 # 設定日誌
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Pydantic 模型
+class GeminiRequest(BaseModel):
+    text: str
+    model: str = "gemini-1.5-flash"
+
+class ModelListResponse(BaseModel):
+    models: List[str]
 
 # 初始化 FastAPI 應用
 app = FastAPI(
@@ -34,12 +44,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 初始化 OpenAI 客戶端
+# 初始化 OpenAI 客戶端（僅用於 Whisper）
 openai_api_key = os.getenv("OPENAI_API_KEY")
 if not openai_api_key:
     raise ValueError("OPENAI_API_KEY 環境變數未設定")
 
 client = openai.OpenAI(api_key=openai_api_key)
+
+# 初始化 Gemini 客戶端
+gemini_api_key = os.getenv("GEMINI_API_KEY")
+if not gemini_api_key:
+    raise ValueError("GEMINI_API_KEY 環境變數未設定")
+
+genai.configure(api_key=gemini_api_key)
+
+# 可用的 Gemini 模型
+AVAILABLE_MODELS = [
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
+    "gemini-1.0-pro"
+]
 
 def convert_to_traditional_chinese(text: str) -> str:
     """
@@ -66,20 +90,74 @@ def convert_to_traditional_chinese(text: str) -> str:
         logger.warning(f"繁體中文轉換失敗，返回原文: {e}")
         return text
 
-def generate_mindmap_data(text: str) -> Dict[str, Any]:
+def generate_mindmap_data(text: str, model: str = "gemini-1.5-flash") -> Dict[str, Any]:
     """
-    生成內容架構圖（使用 Mermaid 流程圖格式）
+    使用 Gemini API 生成內容架構圖（Mermaid 流程圖格式）
+    """
+    try:
+        # 構建 Gemini 提示
+        prompt = f"""
+請根據以下文本內容，生成一個清晰的架構圖，使用 Mermaid 流程圖語法。
+
+文本內容：
+{text}
+
+要求：
+1. 使用 graph TD 格式
+2. 創建層次化的結構，從主題開始，展開到子主題
+3. 每個節點的文字長度不超過20個字符
+4. 如果文字較長，請適當縮寫並保持意思清晰
+5. 最多包含6個節點（包括根節點）
+6. 使用中文標籤
+7. 為不同類型的節點添加樣式類別
+
+請只返回 Mermaid 代碼，不要包含其他說明文字。
+
+示例格式：
+graph TD
+    A[主要內容] --> B[子主題1]
+    A --> C[子主題2]
+    B --> D[細節1]
+    C --> E[細節2]
+    
+    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px,font-size:14px;
+    classDef highlight fill:#e3f2fd,stroke:#1976d2,stroke-width:3px;
+    class A highlight;
+"""
+
+        # 使用 Gemini API 生成內容
+        model_instance = genai.GenerativeModel(model)
+        response = model_instance.generate_content(prompt)
+        
+        if response.text:
+            mermaid_code = response.text.strip()
+            # 清理可能的 markdown 代碼塊標記
+            mermaid_code = mermaid_code.replace('```mermaid', '').replace('```', '').strip()
+            
+            return {
+                "type": "mermaid",
+                "mermaid_code": mermaid_code
+            }
+        else:
+            raise Exception("Gemini API 沒有返回內容")
+        
+    except Exception as e:
+        logger.warning(f"Gemini 架構圖生成失敗: {e}")
+        # 降級到簡單的靜態架構圖
+        return generate_fallback_mindmap(text)
+
+def generate_fallback_mindmap(text: str) -> Dict[str, Any]:
+    """
+    降級的架構圖生成（靜態方式）
     """
     try:
         # 分析文本結構
         sentences = [s.strip() for s in text.split('。') if s.strip() and len(s.strip()) > 3]
         
         if not sentences:
-            # 如果沒有句號分隔，嘗試用逗號分隔
             sentences = [s.strip() for s in text.split(',') if s.strip() and len(s.strip()) > 3]
         
         if not sentences:
-            # 如果還是沒有，就用整段文字
             sentences = [text.strip()]
         
         # 創建架構流程圖
@@ -87,11 +165,10 @@ def generate_mindmap_data(text: str) -> Dict[str, Any]:
         diagram_content += "    A[語音轉錄內容] --> B[主要內容]\n"
         
         # 添加內容節點
-        for i, sentence in enumerate(sentences[:4]):  # 最多4個節點避免過度擁擠
+        for i, sentence in enumerate(sentences[:4]):  # 最多4個節點
             node_id = chr(67 + i)  # C, D, E, F
-            # 優化節點文字長度和換行
+            # 優化節點文字長度
             if len(sentence) > 15:
-                # 尋找適當的斷點
                 words = sentence.split()
                 if len(words) > 2:
                     mid = len(words) // 2
@@ -107,11 +184,11 @@ def generate_mindmap_data(text: str) -> Dict[str, Any]:
             else:
                 node_text = sentence
             
-            # 清理特殊字符避免 Mermaid 語法錯誤
+            # 清理特殊字符
             node_text = node_text.replace('"', '&quot;').replace("'", "&#39;").replace('\n', '<br/>')
             diagram_content += f"    B --> {node_id}[\"{node_text}\"]\n"
         
-        # 添加改進的樣式
+        # 添加樣式
         diagram_content += "\n"
         diagram_content += "    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px,font-size:14px;\n"
         diagram_content += "    classDef highlight fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,font-weight:bold;\n"
@@ -125,7 +202,7 @@ def generate_mindmap_data(text: str) -> Dict[str, Any]:
         }
         
     except Exception as e:
-        logger.warning(f"架構圖生成失敗: {e}")
+        logger.warning(f"降級架構圖生成失敗: {e}")
         # 最基本的架構圖
         clean_text = text[:20].replace('"', '&quot;').replace("'", "&#39;").replace('\n', '<br/>')
         return {
@@ -142,6 +219,40 @@ async def root():
 async def health_check():
     """健康檢查端點"""
     return {"status": "healthy", "service": "speech-to-text-api"}
+
+@app.get("/models")
+async def get_available_models() -> ModelListResponse:
+    """
+    獲取可用的 Gemini 模型列表
+    """
+    return ModelListResponse(models=AVAILABLE_MODELS)
+
+@app.post("/generate-mindmap")
+async def generate_mindmap_endpoint(request: GeminiRequest) -> Dict[str, Any]:
+    """
+    使用指定的 Gemini 模型生成架構圖
+    """
+    try:
+        if request.model not in AVAILABLE_MODELS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"不支援的模型: {request.model}. 可用模型: {', '.join(AVAILABLE_MODELS)}"
+            )
+        
+        mindmap_data = generate_mindmap_data(request.text, request.model)
+        
+        return {
+            "success": True,
+            "model_used": request.model,
+            "mindmap": mindmap_data
+        }
+        
+    except Exception as e:
+        logger.error(f"架構圖生成端點錯誤: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"架構圖生成失敗: {str(e)}"
+        )
 
 @app.post("/transcribe")
 async def transcribe_audio(file: UploadFile = File(...)) -> Dict[str, Any]:
@@ -193,13 +304,13 @@ async def transcribe_audio(file: UploadFile = File(...)) -> Dict[str, Any]:
             # 直接使用原始轉譯結果，不強制轉換
             transcribed_text = transcript.text
             
-            # 生成心智圖數據（可選，不影響主要轉譯）
+            # 生成架構圖數據（使用 Gemini，可選，不影響主要轉譯）
             mindmap_data = None
             try:
-                if len(transcribed_text.strip()) > 20:  # 只有足夠長的文字才生成心智圖
-                    mindmap_data = generate_mindmap_data(transcribed_text)
+                if len(transcribed_text.strip()) > 20:  # 只有足夠長的文字才生成架構圖
+                    mindmap_data = generate_mindmap_data(transcribed_text, "gemini-1.5-flash")
             except Exception as e:
-                logger.warning(f"心智圖生成失敗，但不影響轉譯: {e}")
+                logger.warning(f"架構圖生成失敗，但不影響轉譯: {e}")
             
             result = {
                 "success": True,
@@ -269,13 +380,13 @@ async def transcribe_realtime_audio(file: UploadFile = File(...)) -> Dict[str, A
             # 直接使用原始轉譯結果，確保精確度
             transcribed_text = transcript.strip()
             
-            # 生成心智圖數據（可選，不影響主要轉譯）
+            # 生成架構圖數據（使用 Gemini，可選，不影響主要轉譯）
             mindmap_data = None
             try:
-                if len(transcribed_text) > 20:  # 只有足夠長的文字才生成心智圖
-                    mindmap_data = generate_mindmap_data(transcribed_text)
+                if len(transcribed_text) > 20:  # 只有足夠長的文字才生成架構圖
+                    mindmap_data = generate_mindmap_data(transcribed_text, "gemini-1.5-flash")
             except Exception as e:
-                logger.warning(f"心智圖生成失敗，但不影響轉譯: {e}")
+                logger.warning(f"架構圖生成失敗，但不影響轉譯: {e}")
             
             result = {
                 "success": True,

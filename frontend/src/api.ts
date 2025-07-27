@@ -18,6 +18,21 @@ export interface TranscriptionResult {
   mindmap?: MindMapData;
 }
 
+export interface GeminiRequest {
+  text: string;
+  model: string;
+}
+
+export interface GeminiResponse {
+  success: boolean;
+  model_used: string;
+  mindmap: MindMapData;
+}
+
+export interface ModelListResponse {
+  models: string[];
+}
+
 export interface ApiError {
   detail: string;
 }
@@ -73,6 +88,40 @@ class SpeechToTextAPI {
       if (axios.isAxiosError(error) && error.response) {
         const apiError = error.response.data as ApiError;
         throw new Error(apiError.detail || '即時轉錄失敗');
+      }
+      throw new Error('網路連接錯誤，請檢查後端服務是否正在運行');
+    }
+  }
+
+  async getAvailableModels(): Promise<ModelListResponse> {
+    try {
+      const response = await axios.get<ModelListResponse>(`${API_BASE_URL}/models`);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        const apiError = error.response.data as ApiError;
+        throw new Error(apiError.detail || '獲取模型列表失敗');
+      }
+      throw new Error('網路連接錯誤，請檢查後端服務是否正在運行');
+    }
+  }
+
+  async generateMindmap(text: string, model: string): Promise<GeminiResponse> {
+    try {
+      const response = await axios.post<GeminiResponse>(
+        `${API_BASE_URL}/generate-mindmap`,
+        { text, model },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response) {
+        const apiError = error.response.data as ApiError;
+        throw new Error(apiError.detail || '架構圖生成失敗');
       }
       throw new Error('網路連接錯誤，請檢查後端服務是否正在運行');
     }

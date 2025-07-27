@@ -144,6 +144,63 @@ body {
   border: 2px solid #ffcc02;
 }
 
+.status.error {
+  background: #ffebee;
+  color: #d32f2f;
+  border: 2px solid #ffcdd2;
+}
+
+/* 模型選擇器樣式 */
+.model-selector {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.model-selector label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  color: #333;
+  margin: 0;
+}
+
+.inline-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.model-select {
+  padding: 0.5rem 1rem;
+  border: 2px solid #e0e7ff;
+  border-radius: 8px;
+  background: white;
+  color: #333;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 160px;
+}
+
+.model-select:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.model-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
 .file-upload {
   margin: 2rem 0;
   padding: 2rem;

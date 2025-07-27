@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Mic, MicOff, Upload, Download, Trash2, Brain } from 'lucide-react';
+import { Mic, MicOff, Upload, Download, Trash2, Brain, Settings } from 'lucide-react';
 import { useAudioRecorder } from './hooks/useAudioRecorder';
 import { speechToTextAPI, TranscriptionResult } from './api';
 import AudioVisualizer from './components/AudioVisualizer';
@@ -17,6 +17,9 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>('gemini-1.5-flash');
+  const [showModelSelector, setShowModelSelector] = useState(false);
 
   // 檢查後端連接狀態
   const checkConnection = useCallback(async () => {
@@ -24,6 +27,14 @@ function App() {
       await speechToTextAPI.healthCheck();
       setIsConnected(true);
       setError(null);
+      
+      // 獲取可用模型列表
+      try {
+        const modelResponse = await speechToTextAPI.getAvailableModels();
+        setAvailableModels(modelResponse.models);
+      } catch (modelError) {
+        console.warn('無法獲取模型列表:', modelError);
+      }
     } catch (err) {
       setIsConnected(false);
       setError('無法連接到後端服務，請確保後端服務正在運行');
@@ -106,7 +117,7 @@ function App() {
     }
   }, []);
 
-  // 切換心智圖顯示
+  // 切換架構圖顯示
   const toggleMindMap = useCallback((id: string) => {
     setTranscriptions(prev => 
       prev.map(item => 
@@ -116,6 +127,30 @@ function App() {
       )
     );
   }, []);
+
+  // 重新生成架構圖
+  const regenerateMindMap = useCallback(async (id: string) => {
+    const transcription = transcriptions.find(t => t.id === id);
+    if (!transcription) return;
+
+    setIsProcessing(true);
+    try {
+      const result = await speechToTextAPI.generateMindmap(transcription.text, selectedModel);
+      if (result.success) {
+        setTranscriptions(prev =>
+          prev.map(item =>
+            item.id === id
+              ? { ...item, mindmap: result.mindmap }
+              : item
+          )
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '架構圖生成失敗');
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [transcriptions, selectedModel]);
 
   // 刪除轉錄記錄
   const handleDeleteTranscription = useCallback((id: string) => {
@@ -181,6 +216,28 @@ function App() {
       <div className={getStatusClass()}>
         {getStatusText()}
       </div>
+
+      {/* Gemini 模型選擇器 */}
+      {isConnected && availableModels.length > 0 && (
+        <div className="model-selector">
+          <label htmlFor="model-select">
+            <Brain className="inline-icon" />
+            架構圖生成模型:
+          </label>
+          <select
+            id="model-select"
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="model-select"
+          >
+            {availableModels.map((model) => (
+              <option key={model} value={model}>
+                {model}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* 錄音控制區域 */}
       <div className="recording-section">
@@ -248,6 +305,20 @@ function App() {
                       <Brain size={16} />
                     </button>
                   )}
+                  <button
+                    onClick={() => regenerateMindMap(item.id)}
+                    disabled={isProcessing}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: isProcessing ? 'not-allowed' : 'pointer',
+                      color: isProcessing ? '#999' : '#10b981',
+                      padding: '0.25rem',
+                    }}
+                    title={`使用 ${selectedModel} 重新生成架構圖`}
+                  >
+                    🔄
+                  </button>
                   <button
                     onClick={() => handleDownloadText(item.text, item.fileName || 'transcription')}
                     style={{
