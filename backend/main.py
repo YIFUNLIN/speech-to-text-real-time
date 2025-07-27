@@ -68,79 +68,33 @@ def convert_to_traditional_chinese(text: str) -> str:
 
 def generate_mindmap_data(text: str) -> Dict[str, Any]:
     """
-    使用 OpenAI API 生成心智圖數據結構
+    生成簡單的 Mermaid 心智圖數據結構
     """
     try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {
-                    "role": "system",
-                    "content": """你是一個心智圖專家。請分析用戶提供的文字內容，提取主要概念和關鍵詞，生成心智圖的數據結構。
-
-請只返回有效的 JSON 格式，包含以下結構：
-{
-  "central_topic": "主題",
-  "branches": [
-    {
-      "name": "分支名稱",
-      "keywords": ["關鍵詞1", "關鍵詞2"]
-    }
-  ]
-}
-
-請確保：
-1. 主題簡潔明確（不超過10個字）
-2. 分支不超過5個
-3. 每個分支包含2-3個關鍵詞
-4. 使用繁體中文
-5. 只返回 JSON，不要包含任何其他文字"""
-                },
-                {
-                    "role": "user",
-                    "content": f"請為以下內容生成心智圖結構：{text}"
-                }
-            ],
-            max_tokens=800,
-            temperature=0.2
-        )
+        # 簡化版本：直接基於文本創建基本心智圖，不使用 AI
+        sentences = text.split('。') if '。' in text else text.split(',') if ',' in text else [text]
+        clean_sentences = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 2]
         
-        content = response.choices[0].message.content.strip()
-        # 清理可能的 markdown 格式
-        if content.startswith("```json"):
-            content = content.replace("```json", "").replace("```", "").strip()
+        # 創建基本的 mindmap
+        mindmap_content = "mindmap\n  root)語音內容(\n"
         
-        # 嘗試解析 JSON
-        try:
-            mindmap_data = json.loads(content)
-            # 驗證數據結構
-            if "central_topic" in mindmap_data and "branches" in mindmap_data:
-                return mindmap_data
-            else:
-                raise ValueError("無效的心智圖結構")
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.warning(f"心智圖 JSON 解析失敗: {e}, 內容: {content}")
-            # 創建簡化的基本結構
-            sentences = text.split("。") if "。" in text else [text]
-            return {
-                "central_topic": "語音內容",
-                "branches": [
-                    {
-                        "name": "重點摘要",
-                        "keywords": [s.strip()[:20] + "..." if len(s.strip()) > 20 else s.strip() for s in sentences[:3] if s.strip()]
-                    }
-                ]
-            }
+        # 添加最多5個分支
+        for i, sentence in enumerate(clean_sentences[:5]):
+            # 限制每個分支的長度
+            branch_text = sentence[:15] + "..." if len(sentence) > 15 else sentence
+            mindmap_content += f"    {branch_text}\n"
+        
+        return {
+            "type": "mermaid",
+            "mermaid_code": mindmap_content
+        }
+        
     except Exception as e:
         logger.warning(f"心智圖生成失敗: {e}")
+        # 最基本的回復
         return {
-            "central_topic": "語音內容",
-            "branches": [
-                {
-                    "name": "轉錄文字",
-                    "keywords": [text[:30] + "..." if len(text) > 30 else text]
-                }
-            ]
+            "type": "mermaid",
+            "mermaid_code": f"mindmap\n  root)語音內容(\n    {text[:20]}..."
         }
 
 @app.get("/")
@@ -200,16 +154,20 @@ async def transcribe_audio(file: UploadFile = File(...)) -> Dict[str, Any]:
                     language="zh"  # 指定中文語言
                 )
             
-            # 轉換為繁體中文
-            traditional_text = convert_to_traditional_chinese(transcript.text)
+            # 直接使用原始轉譯結果，不強制轉換
+            transcribed_text = transcript.text
             
-            # 生成心智圖數據
-            mindmap_data = generate_mindmap_data(traditional_text)
+            # 生成心智圖數據（可選，不影響主要轉譯）
+            mindmap_data = None
+            try:
+                if len(transcribed_text.strip()) > 20:  # 只有足夠長的文字才生成心智圖
+                    mindmap_data = generate_mindmap_data(transcribed_text)
+            except Exception as e:
+                logger.warning(f"心智圖生成失敗，但不影響轉譯: {e}")
             
             result = {
                 "success": True,
-                "text": traditional_text,
-                "original_text": transcript.text,
+                "text": transcribed_text,
                 "language": transcript.language,
                 "duration": transcript.duration,
                 "segments": transcript.segments if hasattr(transcript, 'segments') else [],
@@ -272,18 +230,20 @@ async def transcribe_realtime_audio(file: UploadFile = File(...)) -> Dict[str, A
                     language="zh"  # 指定中文語言
                 )
             
-            # 轉換為繁體中文
-            traditional_text = convert_to_traditional_chinese(transcript.strip())
+            # 直接使用原始轉譯結果，確保精確度
+            transcribed_text = transcript.strip()
             
-            # 生成心智圖數據（如果文字足夠長）
+            # 生成心智圖數據（可選，不影響主要轉譯）
             mindmap_data = None
-            if len(traditional_text.strip()) > 20:  # 只有足夠長的文字才生成心智圖
-                mindmap_data = generate_mindmap_data(traditional_text)
+            try:
+                if len(transcribed_text) > 20:  # 只有足夠長的文字才生成心智圖
+                    mindmap_data = generate_mindmap_data(transcribed_text)
+            except Exception as e:
+                logger.warning(f"心智圖生成失敗，但不影響轉譯: {e}")
             
             result = {
                 "success": True,
-                "text": traditional_text,
-                "original_text": transcript.strip(),
+                "text": transcribed_text,
                 "timestamp": "realtime",
                 "mindmap": mindmap_data
             }
