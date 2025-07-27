@@ -243,7 +243,7 @@ function App() {
                         color: '#7c3aed',
                         padding: '0.25rem',
                       }}
-                      title={item.showMindMap ? '隱藏心智圖' : '顯示心智圖'}
+                      title={item.showMindMap ? '隱藏架構圖' : '顯示架構圖'}
                     >
                       <Brain size={16} />
                     </button>
@@ -280,12 +280,12 @@ function App() {
                 {item.text}
               </div>
               
-              {/* 心智圖顯示 */}
+              {/* 架構圖顯示 */}
               {item.showMindMap && item.mindmap && (
                 <div style={{ marginTop: '1rem' }}>
                   <h4 style={{ margin: '0 0 1rem 0', color: '#7c3aed', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <Brain size={18} />
-                    心智圖視覺化
+                    內容架構圖
                   </h4>
                   <MindMap data={item.mindmap} />
                 </div>

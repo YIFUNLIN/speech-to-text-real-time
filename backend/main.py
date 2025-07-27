@@ -68,33 +68,69 @@ def convert_to_traditional_chinese(text: str) -> str:
 
 def generate_mindmap_data(text: str) -> Dict[str, Any]:
     """
-    生成簡單的 Mermaid 心智圖數據結構
+    生成內容架構圖（使用 Mermaid 流程圖格式）
     """
     try:
-        # 簡化版本：直接基於文本創建基本心智圖，不使用 AI
-        sentences = text.split('。') if '。' in text else text.split(',') if ',' in text else [text]
-        clean_sentences = [s.strip() for s in sentences if s.strip() and len(s.strip()) > 2]
+        # 分析文本結構
+        sentences = [s.strip() for s in text.split('。') if s.strip() and len(s.strip()) > 3]
         
-        # 創建基本的 mindmap
-        mindmap_content = "mindmap\n  root)語音內容(\n"
+        if not sentences:
+            # 如果沒有句號分隔，嘗試用逗號分隔
+            sentences = [s.strip() for s in text.split(',') if s.strip() and len(s.strip()) > 3]
         
-        # 添加最多5個分支
-        for i, sentence in enumerate(clean_sentences[:5]):
-            # 限制每個分支的長度
-            branch_text = sentence[:15] + "..." if len(sentence) > 15 else sentence
-            mindmap_content += f"    {branch_text}\n"
+        if not sentences:
+            # 如果還是沒有，就用整段文字
+            sentences = [text.strip()]
+        
+        # 創建架構流程圖
+        diagram_content = "graph TD\n"
+        diagram_content += "    A[語音轉錄內容] --> B[主要內容]\n"
+        
+        # 添加內容節點
+        for i, sentence in enumerate(sentences[:4]):  # 最多4個節點避免過度擁擠
+            node_id = chr(67 + i)  # C, D, E, F
+            # 優化節點文字長度和換行
+            if len(sentence) > 15:
+                # 尋找適當的斷點
+                words = sentence.split()
+                if len(words) > 2:
+                    mid = len(words) // 2
+                    line1 = ' '.join(words[:mid])
+                    line2 = ' '.join(words[mid:])
+                    if len(line1) > 20:
+                        line1 = line1[:17] + "..."
+                    if len(line2) > 20:
+                        line2 = line2[:17] + "..."
+                    node_text = f"{line1}<br/>{line2}"
+                else:
+                    node_text = sentence[:25] + "..." if len(sentence) > 25 else sentence
+            else:
+                node_text = sentence
+            
+            # 清理特殊字符避免 Mermaid 語法錯誤
+            node_text = node_text.replace('"', '&quot;').replace("'", "&#39;").replace('\n', '<br/>')
+            diagram_content += f"    B --> {node_id}[\"{node_text}\"]\n"
+        
+        # 添加改進的樣式
+        diagram_content += "\n"
+        diagram_content += "    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px,font-size:14px;\n"
+        diagram_content += "    classDef highlight fill:#e3f2fd,stroke:#1976d2,stroke-width:3px,font-weight:bold;\n"
+        diagram_content += "    classDef content fill:#fff3e0,stroke:#f57c00,stroke-width:2px;\n"
+        diagram_content += "    class A highlight;\n"
+        diagram_content += "    class B content;\n"
         
         return {
             "type": "mermaid",
-            "mermaid_code": mindmap_content
+            "mermaid_code": diagram_content
         }
         
     except Exception as e:
-        logger.warning(f"心智圖生成失敗: {e}")
-        # 最基本的回復
+        logger.warning(f"架構圖生成失敗: {e}")
+        # 最基本的架構圖
+        clean_text = text[:20].replace('"', '&quot;').replace("'", "&#39;").replace('\n', '<br/>')
         return {
             "type": "mermaid",
-            "mermaid_code": f"mindmap\n  root)語音內容(\n    {text[:20]}..."
+            "mermaid_code": f"graph TD\n    A[語音轉錄] --> B[\"{clean_text}...\"]\n    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px,font-size:14px;\n    classDef highlight fill:#e3f2fd,stroke:#1976d2,stroke-width:3px;\n    class A highlight;"
         }
 
 @app.get("/")

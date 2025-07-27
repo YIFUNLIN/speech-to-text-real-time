@@ -20,9 +20,20 @@ const MindMap: React.FC<MindMapProps> = ({ data }) => {
         startOnLoad: true,
         theme: 'default',
         flowchart: {
-          useMaxWidth: true,
+          useMaxWidth: false,
           htmlLabels: true,
+          nodeSpacing: 50,
+          rankSpacing: 80,
+          curve: 'basis'
         },
+        themeVariables: {
+          fontFamily: 'Arial, "Microsoft YaHei", "微軟雅黑", sans-serif',
+          fontSize: '14px',
+          primaryColor: '#f9f9f9',
+          primaryTextColor: '#333',
+          primaryBorderColor: '#333',
+          lineColor: '#333'
+        }
       });
 
       // 清空容器
@@ -37,11 +48,11 @@ const MindMap: React.FC<MindMapProps> = ({ data }) => {
           mermaidRef.current.innerHTML = result.svg;
         }
       }).catch((error) => {
-        console.error('Mermaid 渲染錯誤:', error);
+        console.error('架構圖渲染錯誤:', error);
         if (mermaidRef.current) {
           mermaidRef.current.innerHTML = `
             <div style="padding: 20px; text-align: center; color: #666; border: 1px dashed #ccc; border-radius: 8px;">
-              <p>心智圖渲染失敗</p>
+              <p>架構圖渲染失敗</p>
               <pre style="font-size: 12px; text-align: left; background: #f5f5f5; padding: 10px; margin-top: 10px;">${data.mermaid_code}</pre>
             </div>
           `;
@@ -62,8 +73,11 @@ const MindMap: React.FC<MindMapProps> = ({ data }) => {
     <div className="w-full bg-white rounded-lg border shadow-sm p-4">
       <div 
         ref={mermaidRef} 
-        className="w-full flex justify-center"
-        style={{ minHeight: '200px' }}
+        className="w-full overflow-x-auto"
+        style={{ 
+          minHeight: '300px',
+          maxWidth: '100%'
+        }}
       />
     </div>
   );
