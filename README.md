@@ -2,6 +2,12 @@
 
 即時語音轉文字應用程式，使用 OpenAI Whisper 模型進行高精度語音識別
 
+## 📸 應用程式預覽
+
+![Speech-to-Text App Homepage](image/homepage.png)
+
+## 📋 徽章
+
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.8+-green.svg)
 ![Node.js](https://img.shields.io/badge/node.js-18+-green.svg)
@@ -177,6 +183,71 @@ npm run dev
    - 支援 MP3, WAV, M4A, WEBM 等格式
    - 自動處理並顯示轉錄結果
 4. **下載結果**: 點擊下載按鈕儲存轉錄文本
+
+## 🔄 重新啟動專案指南
+
+**⚠️ 重要**: 一旦完成上述完整安裝後，以後每次重新啟動專案時，只需要執行以下簡化步驟：
+
+### 快速啟動步驟
+
+#### 1. 啟動後端服務
+
+```bash
+# 進入專案根目錄
+cd /path/to/speech-to-text-app
+
+# 進入後端目錄並啟動虛擬環境
+cd backend
+source venv/bin/activate
+
+# 啟動後端服務
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+
+如果虛擬環境啟動有問題，可以使用替代方法：
+```bash
+# 替代啟動方法
+. venv/bin/activate
+# 或直接使用
+python main.py
+```
+
+#### 2. 啟動前端服務 (新終端視窗)
+
+```bash
+# 在新終端視窗中，進入前端目錄
+cd /path/to/speech-to-text-app/frontend
+
+# 啟動前端開發伺服器
+npm run dev
+```
+
+#### 3. 驗證服務運行
+
+- **前端應用**: http://localhost:5173
+- **後端 API**: http://localhost:8000
+- **API 文檔**: http://localhost:8000/docs
+- **後端健康檢查**: http://localhost:8000/health
+
+### 💡 啟動提示
+
+- **環境變數**: `.env` 文件已設置，無需重新配置
+- **依賴套件**: 虛擬環境和 `node_modules` 已安裝，無需重新安裝
+- **服務順序**: 建議先啟動後端，再啟動前端
+- **停止服務**: 在終端中按 `Ctrl+C` 停止服務
+
+### 🔧 如果遇到啟動問題
+
+```bash
+# 檢查端口是否被占用
+lsof -ti:8000 | xargs kill -9  # 停止後端端口
+lsof -ti:5173 | xargs kill -9  # 停止前端端口
+
+# 重新啟動虛擬環境
+cd backend
+deactivate  # 如果已啟動
+source venv/bin/activate
+```
 
 ## 🐳 Docker 快速啟動 (可選)
 
