@@ -39,7 +39,7 @@ speech-to-text-app/
 
 1. 克隆專案
 ```bash
-git clone https://github.com/your-username/speech-to-text-app.git
+git clone https://github.com/YIFUNLIN/speech-to-text-app.git
 cd speech-to-text-app
 ```
 
