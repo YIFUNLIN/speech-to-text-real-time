@@ -1,13 +1,15 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Mic, MicOff, Upload, Download, Trash2 } from 'lucide-react';
+import { Mic, MicOff, Upload, Download, Trash2, Brain } from 'lucide-react';
 import { useAudioRecorder } from './hooks/useAudioRecorder';
 import { speechToTextAPI, TranscriptionResult } from './api';
 import AudioVisualizer from './components/AudioVisualizer';
+import MindMap from './components/MindMap';
 
 interface TranscriptionItem extends TranscriptionResult {
   id: string;
   timestamp: string;
   fileName?: string;
+  showMindMap?: boolean;
 }
 
 function App() {
@@ -102,6 +104,17 @@ function App() {
       setIsProcessing(false);
       event.target.value = ''; // 重置檔案輸入
     }
+  }, []);
+
+  // 切換心智圖顯示
+  const toggleMindMap = useCallback((id: string) => {
+    setTranscriptions(prev => 
+      prev.map(item => 
+        item.id === id 
+          ? { ...item, showMindMap: !item.showMindMap }
+          : item
+      )
+    );
   }, []);
 
   // 刪除轉錄記錄
@@ -220,6 +233,21 @@ function App() {
                 {item.duration && ` • ⏱️ ${Math.round(item.duration)}秒`}
                 
                 <div style={{ float: 'right', display: 'flex', gap: '0.5rem' }}>
+                  {item.mindmap && (
+                    <button
+                      onClick={() => toggleMindMap(item.id)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: '#7c3aed',
+                        padding: '0.25rem',
+                      }}
+                      title={item.showMindMap ? '隱藏心智圖' : '顯示心智圖'}
+                    >
+                      <Brain size={16} />
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDownloadText(item.text, item.fileName || 'transcription')}
                     style={{
@@ -251,6 +279,17 @@ function App() {
               <div className="result-text">
                 {item.text}
               </div>
+              
+              {/* 心智圖顯示 */}
+              {item.showMindMap && item.mindmap && (
+                <div style={{ marginTop: '1rem' }}>
+                  <h4 style={{ margin: '0 0 1rem 0', color: '#7c3aed', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Brain size={18} />
+                    心智圖視覺化
+                  </h4>
+                  <MindMap data={item.mindmap} />
+                </div>
+              )}
             </div>
           ))}
         </div>
