@@ -36,7 +36,7 @@
 ## 📁 專案結構
 
 ```
-speech-to-text-app/
+speech-to-text-real-time/
 ├── 📁 frontend/              # React 前端應用
 │   ├── 📁 src/
 │   │   ├── 📁 components/    # React 組件
@@ -85,8 +85,8 @@ npm --version
 #### 1. 克隆專案
 
 ```bash
-git clone https://github.com/YIFUNLIN/speech-to-text-app.git
-cd speech-to-text-app
+git clone https://github.com/YIFUNLIN/speech-to-text-real-time.git
+cd speech-to-text-real-time
 ```
 
 #### 2. 設定 OpenAI API Key
@@ -194,7 +194,7 @@ npm run dev
 
 ```bash
 # 進入專案根目錄
-cd /path/to/speech-to-text-app
+cd /path/to/speech-to-text-real-time
 
 # 進入後端目錄並啟動虛擬環境
 cd backend
@@ -216,7 +216,7 @@ python main.py
 
 ```bash
 # 在新終端視窗中，進入前端目錄
-cd /path/to/speech-to-text-app/frontend
+cd /path/to/speech-to-text-real-time/frontend
 
 # 啟動前端開發伺服器
 npm run dev
